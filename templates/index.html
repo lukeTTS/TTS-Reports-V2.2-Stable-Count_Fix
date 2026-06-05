@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TTS PRO Report Generator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="app-nav" aria-label="Main navigation">
+      <div class="brand-mark">TTS</div>
+      <button type="button" class="nav-item active" data-panel="home-panel"><span>⌂</span><small>Home</small></button>
+      <button type="button" class="nav-item" data-panel="import-panel"><span>⇧</span><small>Import</small></button>
+      <button type="button" class="nav-item" data-panel="reports-panel"><span>▤</span><small>Reports</small></button>
+      <button type="button" class="nav-item" data-panel="template-panel"><span>✎</span><small>Template</small></button>
+      <button type="button" class="nav-item" data-panel="settings-panel"><span>⚙</span><small>Settings</small></button>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">TTS project report system</p>
+          <h1>PRO Report Generator</h1>
+        </div>
+        <div class="status-pill" id="file-status-pill">No project file imported</div>
+      </header>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}<div class="alert">{{ messages[0] }}</div>{% endif %}
+      {% endwith %}
+
+      <form action="{{ url_for('generate') }}" method="post" enctype="multipart/form-data" class="app-form">
+        <div class="content-grid">
+          <section class="main-canvas">
+            <div id="home-panel" class="panel active-panel dashboard-panel">
+              <div class="canvas-header compact">
+                <div>
+                  <h2>Asset Register Dashboard</h2>
+                  <p>Clean register view of the imported project file. Supports aPAT PDF, aPAT .padfx, aPAT .apx, ES Manager .xlsx and ES Manager .padfx.</p>
+                </div>
+                <button type="button" class="mini-action" data-panel-target="import-panel">Import file</button>
+              </div>
+
+              <div class="dashboard-stats">
+                <div class="stat-card primary"><span>Total assets</span><strong id="stat-assets">0</strong></div>
+                <div class="stat-card pass"><span>Passed</span><strong id="stat-pass">0</strong></div>
+                <div class="stat-card fail"><span>Failed</span><strong id="stat-fail">0</strong></div>
+                <div class="stat-card"><span>Locations</span><strong id="stat-locations">0</strong></div>
+                <div class="stat-card"><span>Due 90 days</span><strong id="stat-due">0</strong></div>
+                <div class="stat-card"><span>Overdue</span><strong id="stat-overdue">0</strong></div>
+              </div>
+
+              <div class="dashboard-grid">
+                <div class="register-card">
+                  <div class="register-toolbar">
+                    <div class="search-wrap"><span>Search</span><input type="search" id="asset-search" placeholder="Asset ID, type, location..."></div>
+                    <label>Status<select id="status-filter"><option value="">All</option><option>Pass</option><option>Fail</option><option>Recorded</option></select></label>
+                    <label>Location<select id="location-filter"><option value="">All locations</option></select></label>
+                  </div>
+                  <div class="register-table-shell">
+                    <div id="empty-table" class="empty-table">
+                      <div class="empty-icon">⇧</div>
+                      <h3>Import a tester project file</h3>
+                      <p>The asset register dashboard will appear here after import.</p>
+                    </div>
+                    <table id="asset-table" class="asset-table" aria-label="Asset register dashboard"></table>
+                  </div>
+                  <div class="table-footer"><span id="preview-note">Waiting for project file import.</span></div>
+                </div>
+
+                <aside class="asset-detail-card" id="asset-detail-card">
+                  <div class="detail-empty">
+                    <span>▤</span>
+                    <h3>No asset selected</h3>
+                    <p>Select an asset row to view the detailed single-line test summary.</p>
+                  </div>
+                </aside>
+              </div>
+            </div>
+
+            <div id="import-panel" class="panel">
+              <div class="canvas-header compact">
+                <div><h2>Import</h2><p>Upload one project file. Supported: aPAT PDF, aPAT .padfx, aPAT .apx, ES Manager .xlsx, or ES Manager .padfx.</p></div>
+                <span class="step-badge">Project file</span>
+              </div>
+
+              <div class="import-layout">
+                <label class="big-dropzone" id="primary-drop">
+                  <input type="file" name="project_file" accept=".pdf,.padfx,.padf,.apx,.xlsx" required data-file-label="primary-file-name">
+                  <span class="upload-icon">⇧</span>
+                  <strong>Upload project data file</strong>
+                  <small id="primary-file-name">Choose .pdf, .padfx, .apx or .xlsx project data</small>
+                </label>
+                <div class="import-help">
+                  <h3>Import workflow</h3>
+                  <p>The app detects the file type, parses the tester data, then builds a single clean asset register dashboard.</p>
+                  <ul>
+                    <li>Assets grouped by Appliance ID</li>
+                    <li>Pass / Fail status counts</li>
+                    <li>Locations and retest dates detected</li>
+                    <li>Click an asset on Home to inspect test lines</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div id="reports-panel" class="panel reports-dashboard-panel">
+              <div class="canvas-header compact">
+                <div>
+                  <h2>Reports Dashboard</h2>
+                  <p>Choose one of the three main customer outputs. Upcoming Retest turns the Project file file into a due-date action list.</p>
+                </div>
+                <span class="step-badge">Reports</span>
+              </div>
+
+              <div class="reports-dashboard-grid">
+                <button type="button" class="report-action-card" data-report-action="basic">
+                  <span class="report-icon">B</span>
+                  <strong>Basic Report</strong>
+                  <small>Simple title page plus results register.</small>
+                  <em>Generate Basic</em>
+                </button>
+                <button type="button" class="report-action-card selected" data-report-action="pro">
+                  <span class="report-icon">P</span>
+                  <strong>PRO Report</strong>
+                  <small>Customer-facing cover, General Data, results register and detail pages.</small>
+                  <em>Generate PRO</em>
+                </button>
+                <button type="button" class="report-action-card retest" data-report-action="retest">
+                  <span class="report-icon">⏱</span>
+                  <strong>Upcoming Retest Report</strong>
+                  <small>Due-date report grouped into Overdue, Due 30, Due 60 and Due 90.</small>
+                  <em>Generate Retest</em>
+                </button>
+              </div>
+
+              <div class="retest-dashboard">
+                <div class="retest-head">
+                  <div>
+                    <h3>Upcoming Retest Snapshot</h3>
+                    <p>Based on the imported Project file file and current latest-test customer mode.</p>
+                  </div>
+                  <button type="button" class="mini-action" data-report-direct="retest">Generate Upcoming Retest Report</button>
+                </div>
+                <div class="retest-buckets">
+                  <div class="retest-bucket overdue"><span>Overdue</span><strong id="report-overdue">0</strong></div>
+                  <div class="retest-bucket"><span>Due in 30 days</span><strong id="report-due-30">0</strong></div>
+                  <div class="retest-bucket"><span>Due in 60 days</span><strong id="report-due-60">0</strong></div>
+                  <div class="retest-bucket"><span>Due in 90 days</span><strong id="report-due-90">0</strong></div>
+                </div>
+                <div class="retest-list-shell">
+                  <table id="retest-table" class="retest-table" aria-label="Upcoming retest table">
+                    <thead><tr><th>Bucket</th><th>Asset ID</th><th>Type</th><th>Location</th><th>Retest Date</th><th>Days</th><th>Status</th></tr></thead>
+                    <tbody><tr><td colspan="7" class="empty-cell">Import a project file to populate the upcoming retest dashboard.</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <input type="hidden" name="report_type" id="report-type-input" value="pro">
+            </div>
+
+            <div id="template-panel" class="panel">
+              <div class="canvas-header compact"><div><h2>Template Editor</h2><p>Edit the PRO Report General Data cover page.</p></div><span class="step-badge">General Data</span></div>
+              <div class="template-grid">
+                <div class="form-section"><h3>Job details</h3><div class="grid three"><label>Customer No.<input name="customer_no"></label><label>Inspect. rec. No.<input name="inspection_record_no"></label><label>Order No.<input name="order_no"></label></div><div class="grid two"><label>Customer address<textarea name="customer_address" rows="3"></textarea></label><label>Contractor<textarea name="contractor" rows="3"></textarea></label></div><label>Description<input name="description" value="Electrical equipment testing report"></label></div>
+                <div class="form-section"><h3>Test details</h3><div class="grid two"><label>Test in accordance with<input name="test_in_accordance_with" value="AS/NZS 3760"></label><label>Date of next inspection<input name="date_of_next_inspection"></label><label>Start of testing<input name="start_of_testing"></label><label>End of testing<input name="end_of_testing"></label></div><label>Notes<textarea name="notes" rows="3"></textarea></label></div>
+                <div class="form-section split-section"><div><h3>Equipment</h3><div class="checks compact-checks">{% for item in ['EV cable','Medical','Portable appliance','Machine','Welding','Switchgear','Other','CE Marketing'] %}<label><input type="checkbox" name="type_of_equipment" value="{{ item }}" {% if item == 'Portable appliance' %}checked{% endif %}> {{ item }}</label>{% endfor %}</div></div><div><h3>Reason</h3><div class="checks compact-checks">{% for item in ['In service','Repair','Periodic test','Other'] %}<label><input type="checkbox" name="reason_for_test" value="{{ item }}" {% if item == 'Periodic test' %}checked{% endif %}> {{ item }}</label>{% endfor %}</div></div></div>
+                <div class="form-section"><h3>Instruments</h3><div class="instrument-grid"><label>Model 1<input name="instrument_model_1" value="MI 3340"></label><label>Serial 1<input name="instrument_serial_1" value="24460062"></label><label>Operator<input name="operator_name"></label></div></div>
+                <div class="form-section"><h3>Contacts</h3><div class="grid two"><label>Customer contact details<textarea name="customer_contact_details" rows="3"></textarea></label><label>Test engineer contact details<textarea name="test_engineer_contact_details" rows="3"></textarea></label></div></div>
+                <div class="form-section split-section"><div><h3>Attachments</h3><div class="checks compact-checks">{% for item in ['Test results','Description of faulty equipment','Checklist','Other'] %}<label><input type="checkbox" name="attachments" value="{{ item }}" {% if item == 'Test results' %}checked{% endif %}> {{ item }}</label>{% endfor %}</div></div><div><h3>Labelling</h3><div class="checks compact-checks">{% for item in ['Pass/Fail tags','Barcoded tags','RFID tags'] %}<label><input type="checkbox" name="method_of_labelling" value="{{ item }}" {% if item == 'Pass/Fail tags' %}checked{% endif %}> {{ item }}</label>{% endfor %}</div><label>Results summary<select name="results_summary"><option selected>No faults found</option><option>Faults found</option></select></label></div></div>
+              </div>
+            </div>
+
+            <div id="settings-panel" class="panel settings-panel">
+              <div class="canvas-header compact">
+                <div>
+                  <h2>Settings</h2>
+                  <p>Store business details, branding, report defaults, retest rules, import behaviour, PDF output and privacy controls.</p>
+                </div>
+                <div class="settings-actions">
+                  <button type="button" class="mini-action" id="save-settings-btn">Save settings</button>
+                  <button type="button" class="mini-action secondary" id="reset-settings-btn">Reset</button>
+                </div>
+              </div>
+
+              <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+                <button type="button" class="settings-tab active" data-settings-tab="business-settings">Business</button>
+                <button type="button" class="settings-tab" data-settings-tab="branding-settings">Branding</button>
+                <button type="button" class="settings-tab" data-settings-tab="report-defaults-settings">Reports</button>
+                <button type="button" class="settings-tab" data-settings-tab="template-defaults-settings">Template</button>
+                <button type="button" class="settings-tab" data-settings-tab="retest-settings">Retest</button>
+                <button type="button" class="settings-tab" data-settings-tab="import-settings">Import</button>
+                <button type="button" class="settings-tab" data-settings-tab="pdf-settings">PDF</button>
+                <button type="button" class="settings-tab" data-settings-tab="signoff-settings">Sign-off</button>
+                <button type="button" class="settings-tab" data-settings-tab="privacy-settings">Privacy</button>
+                <button type="button" class="settings-tab" data-settings-tab="advanced-settings">Advanced</button>
+              </div>
+
+              <div class="settings-content">
+                <section id="business-settings" class="settings-section active-settings-section">
+                  <div class="section-title"><h3>1. Business Profile</h3><p>Saved contractor/business details used on reports so users do not retype them every time.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Business name<input name="settings_business_name" data-setting-key="businessName" placeholder="Example Electrical Pty Ltd"></label>
+                    <label>Trading name<input name="settings_trading_name" data-setting-key="tradingName" placeholder="TTS Testing Services"></label>
+                    <label>ABN / ACN<input name="settings_abn_acn" data-setting-key="abnAcn"></label>
+                    <label>Electrical licence number<input name="settings_electrical_licence" data-setting-key="electricalLicence"></label>
+                    <label>Phone<input name="settings_phone" data-setting-key="phone" type="tel"></label>
+                    <label>Email<input name="settings_email" data-setting-key="email" type="email"></label>
+                    <label>Website<input name="settings_website" data-setting-key="website" type="url"></label>
+                    <label>Default technician / operator name<input name="operator_name" data-setting-key="defaultTechnician"></label>
+                    <label class="span-two">Address<textarea name="settings_address" data-setting-key="address" rows="3"></textarea></label>
+                  </div>
+                  <div class="settings-hint">When saved, these details can prefill contractor, contact and operator fields before report generation.</div>
+                </section>
+
+                <section id="branding-settings" class="settings-section">
+                  <div class="section-title"><h3>2. Branding</h3><p>Defaults stay on the TTS palette, but this prepares the app for customer branding.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Upload company logo<input type="file" name="settings_logo_file" data-setting-key="logoFileName" accept=".png,.jpg,.jpeg,.svg"></label>
+                    <label>Choose logo position<select name="settings_logo_position" data-setting-key="logoPosition"><option>Top-left</option><option>Centred</option><option>Hidden</option></select></label>
+                    <label>Report header text<input name="logo_text" data-setting-key="reportHeaderText" placeholder="TTS PRO Report"></label>
+                    <label>Report footer text<input name="settings_report_footer_text" data-setting-key="reportFooterText"></label>
+                    <label>Primary colour<input type="color" name="settings_primary_colour" data-setting-key="primaryColour" value="#CC0000"></label>
+                    <label>Secondary colour<input type="color" name="settings_secondary_colour" data-setting-key="secondaryColour" value="#99CCCC"></label>
+                    <label class="toggle-line span-two"><input type="checkbox" name="settings_use_tts_colours" data-setting-key="useTtsColours" checked> Use TTS default colours</label>
+                  </div>
+                  <div class="swatches settings-swatches"><span class="sw red"></span><span class="sw seafoam"></span><span class="sw charcoal"></span><span class="sw beige"></span><span class="sw white"></span></div>
+                </section>
+
+                <section id="report-defaults-settings" class="settings-section">
+                  <div class="section-title"><h3>3. Report Defaults</h3><p>Set the default customer output. Latest test only remains the normal locked customer mode.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Default report type<select name="settings_default_report_type" data-setting-key="defaultReportType"><option>PRO Report</option><option>Basic Report</option><option>Upcoming Retest Report</option></select></label>
+                    <label>Default filter<select name="settings_default_filter" data-setting-key="defaultFilter"><option>Latest test only recommended</option><option>Date range</option><option>Advanced audit / all dates</option></select></label>
+                    <label>Default standard<input name="test_in_accordance_with" data-setting-key="defaultStandard" value="AS/NZS 3760"></label>
+                    <label class="toggle-line"><input type="checkbox" name="include_asset_cards" data-setting-key="includeDetailedPages" checked> Include detailed appliance pages</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_show_failed_first" data-setting-key="showFailedFirst"> Show failed items first</label>
+                  </div>
+                  <div class="locked-filter-card settings-locked-card"><div><strong>Latest test only</strong><span>Recommended</span></div><p>Normal customer reports show the current compliance status only. All dates remain hidden under Advanced / Audit Report.</p></div>
+                </section>
+
+                <section id="template-defaults-settings" class="settings-section">
+                  <div class="section-title"><h3>4. Template Defaults</h3><p>Defaults for the editable General Data section.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Default customer number<input name="settings_default_customer_no" data-setting-key="defaultCustomerNo"></label>
+                    <label>Default inspection record prefix<input name="settings_inspection_record_prefix" data-setting-key="inspectionRecordPrefix"></label>
+                    <label>Default order number prefix<input name="settings_order_number_prefix" data-setting-key="orderNumberPrefix"></label>
+                    <label>Default description<input name="settings_default_description" data-setting-key="defaultDescription"></label>
+                    <label>Default reason for test<select name="settings_default_reason" data-setting-key="defaultReason"><option>Periodic test</option><option>In service</option><option>Repair</option><option>Other</option></select></label>
+                    <label>Default equipment type<select name="settings_default_equipment_type" data-setting-key="defaultEquipmentType"><option>Portable appliance</option><option>EV cable</option><option>Medical</option><option>Machine</option><option>Welding</option><option>Switchgear</option><option>Other</option></select></label>
+                    <label>Default attachments selected<select name="settings_default_attachments" data-setting-key="defaultAttachments"><option>Test results</option><option>Description of faulty equipment</option><option>Checklist</option><option>Other</option></select></label>
+                    <label>Default labelling method<select name="settings_default_labelling" data-setting-key="defaultLabelling"><option>Pass/Fail tags</option><option>Barcoded tags</option><option>RFID tags</option></select></label>
+                    <label class="span-two">Default inspection statement<textarea name="settings_default_inspection_statement" data-setting-key="defaultInspectionStatement" rows="3"></textarea></label>
+                    <label class="span-two">Default notes<textarea name="notes" data-setting-key="defaultNotes" rows="3"></textarea></label>
+                  </div>
+                </section>
+
+                <section id="retest-settings" class="settings-section">
+                  <div class="section-title"><h3>5. Retest Settings</h3><p>Controls for the Upcoming Retest Report.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Due soon window 1<input type="number" name="settings_due_window_30" data-setting-key="dueWindow30" value="30" min="1"></label>
+                    <label>Due soon window 2<input type="number" name="settings_due_window_60" data-setting-key="dueWindow60" value="60" min="1"></label>
+                    <label>Due soon window 3<input type="number" name="settings_due_window_90" data-setting-key="dueWindow90" value="90" min="1"></label>
+                    <label>Default grouping<select name="settings_retest_grouping" data-setting-key="retestGrouping"><option>By due date</option><option>By location</option><option>By status</option><option>By asset type</option></select></label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_show_overdue_first" data-setting-key="showOverdueFirst" checked> Show overdue first</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_passed_assets_only" data-setting-key="passedAssetsOnly"> Include passed assets only</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_include_failed_retest" data-setting-key="includeFailedInRetest" checked> Include failed assets in retest report</label>
+                  </div>
+                </section>
+
+                <section id="import-settings" class="settings-section">
+                  <div class="section-title"><h3>6. Import Settings</h3><p>Project import workflow controls.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Accepted file type<input value=".pdf, .padfx, .apx or .xlsx" readonly></label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_auto_dashboard" data-setting-key="autoDashboard" checked> Automatically open dashboard after import</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_auto_latest" data-setting-key="autoLatest" checked> Automatically select latest test only</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_warn_old_history" data-setting-key="warnOldHistory" checked> Warn if file contains old historical data</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_warn_no_retest" data-setting-key="warnNoRetest" checked> Warn if no retest dates found</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_remember_folder" data-setting-key="rememberLastFolder"> Remember last imported folder</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_keep_history" data-setting-key="keepImportHistory" checked> Keep import history</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_clear_on_close" data-setting-key="clearOnClose"> Clear imported data after closing app</label>
+                  </div>
+                </section>
+
+                <section id="pdf-settings" class="settings-section">
+                  <div class="section-title"><h3>7. PDF Output Settings</h3><p>Filename and output behaviour.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Default filename format<select name="settings_filename_format" data-setting-key="filenameFormat"><option>CustomerName_ReportDate</option><option>CustomerName_Location_ReportDate</option><option>ReportType_CustomerName_Date</option></select></label>
+                    <label>Default save location<input name="settings_save_location" data-setting-key="saveLocation" placeholder="Browser download folder by default"></label>
+                    <label>Filename pattern<input name="settings_filename_pattern" data-setting-key="filenamePattern" value="{customer}_{report_type}_{date}.pdf"></label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_open_pdf" data-setting-key="openPdfAfterGeneration"> Open PDF after generation</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_compress_pdf" data-setting-key="compressPdf"> Compress PDF</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_include_page_numbers" data-setting-key="includePageNumbers" checked> Include page numbers</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_include_generated_datetime" data-setting-key="includeGeneratedDateTime" checked> Include generated date/time</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_include_version_footer" data-setting-key="includeAppVersionFooter"> Include app version in footer</label>
+                  </div>
+                </section>
+
+                <section id="signoff-settings" class="settings-section">
+                  <div class="section-title"><h3>8. Signature and Sign-off</h3><p>Saved sign-off labels and defaults.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label>Client signature label<input name="settings_client_signature_label" data-setting-key="clientSignatureLabel" value="Client signature"></label>
+                    <label>Operator signature label<input name="settings_operator_signature_label" data-setting-key="operatorSignatureLabel" value="Operator signature"></label>
+                    <label>Default operator name<input name="settings_default_operator_name" data-setting-key="signoffOperatorName"></label>
+                    <label>Default operator location<input name="operator_location" data-setting-key="defaultOperatorLocation"></label>
+                    <label>Client location<input name="client_location" data-setting-key="clientLocation"></label>
+                    <label>Client date<input name="client_date" data-setting-key="clientDate"></label>
+                    <label>Client signature/name<input name="client_signature" data-setting-key="clientSignature"></label>
+                    <label>Operator date<input name="operator_date" data-setting-key="operatorDate"></label>
+                    <label>Operator signature/name<input name="operator_signature" data-setting-key="operatorSignature"></label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_show_signature_section" data-setting-key="showSignatureSection" checked> Show signature section</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_show_acceptance_checkboxes" data-setting-key="showAcceptanceCheckboxes" checked> Show acceptance checkboxes</label>
+                  </div>
+                </section>
+
+                <section id="privacy-settings" class="settings-section">
+                  <div class="section-title"><h3>9. Data and Privacy</h3><p>Files are processed locally and not uploaded to an external server.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label class="toggle-line"><input type="checkbox" name="settings_store_imported_files" data-setting-key="storeImportedFiles"> Store imported files locally</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_auto_delete_uploads" data-setting-key="autoDeleteUploads" checked> Auto-delete uploaded files after report generation</label>
+                    <button type="button" class="settings-danger" id="clear-app-data-btn">Clear all app data</button>
+                    <button type="button" class="settings-danger" id="clear-report-history-btn">Clear report history</button>
+                    <button type="button" class="settings-danger" id="clear-saved-settings-btn">Clear saved settings</button>
+                  </div>
+                  <div class="privacy-note">Local desktop build: imported Project file files and generated PDFs stay on this computer unless the app is later hosted online.</div>
+                </section>
+
+                <section id="advanced-settings" class="settings-section">
+                  <div class="section-title"><h3>10. Advanced / Developer Settings</h3><p>Technical controls for diagnostics and audit workflows.</p></div>
+                  <div class="settings-form-grid two-col">
+                    <label class="toggle-line"><input type="checkbox" name="settings_show_raw_padfx" data-setting-key="showRawPadfx"> Show raw Project file data</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_export_parsed_csv" data-setting-key="exportParsedCsv"> Export parsed data to CSV</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_export_debug_log" data-setting-key="exportDebugLog"> Export debug log</label>
+                    <label>Parser mode<select name="settings_parser_mode" data-setting-key="parserMode"><option>Standard</option><option>Strict</option><option>Experimental</option></select></label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_show_audit_options" data-setting-key="showAuditOptions"> Show audit report options</label>
+                    <label class="toggle-line"><input type="checkbox" name="settings_enable_all_dates" data-setting-key="enableAllHistoricalDates"> Enable all historical dates</label>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <aside class="control-panel">
+            <div class="control-card">
+              <h2>Report Controls</h2>
+              <p class="side-note">Import a supported project file, then generate the PDF. Latest test only is locked as the recommended customer default.</p>
+              <div class="compact-group"><h3>Report type</h3><label class="compact-radio active"><input type="radio" name="report_type_control" value="pro" checked> PRO Report</label><label class="compact-radio"><input type="radio" name="report_type_control" value="basic"> Basic Report</label><label class="compact-radio"><input type="radio" name="report_type_control" value="retest"> Upcoming Retest</label></div>
+              <input type="hidden" name="filter_mode" id="filter-mode-input" value="latest">
+              <div class="compact-group customer-mode-group">
+                <h3>Customer mode</h3>
+                <div class="locked-filter-card">
+                  <div>
+                    <strong>Latest test only</strong>
+                    <span>Recommended</span>
+                  </div>
+                  <p>Normal customer reports show the current compliance status only. Historical repeats are hidden automatically.</p>
+                </div>
+              </div>
+              <details class="compact-group advanced-audit" id="advanced-audit">
+                <summary>Advanced / Audit Report</summary>
+                <p class="advanced-note">Use these options only when you intentionally want a historical or date-specific report.</p>
+                <div class="audit-options">
+                  <label class="compact-radio"><input type="radio" name="audit_filter_mode" value="range"> By date range</label>
+                  <label class="compact-radio"><input type="radio" name="audit_filter_mode" value="all"> All dates / full history</label>
+                </div>
+                <div class="two-dates audit-dates"><label>Start date<input type="date" name="filter_start_date"></label><label>End date<input type="date" name="filter_end_date"></label></div>
+              </details>
+              <div class="compact-group"><h3>Data source</h3><div class="source-box" id="source-box">Project file not imported</div></div>
+              <button type="submit" class="generate-btn">Generate PDF Report</button>
+            </div>
+          </aside>
+        </div>
+      </form>
+    </main>
+  </div>
+<script>
+  const panels = document.querySelectorAll('.panel');
+  const navButtons = document.querySelectorAll('.nav-item');
+  const assetTable = document.getElementById('asset-table');
+  const emptyTable = document.getElementById('empty-table');
+  const detailCard = document.getElementById('asset-detail-card');
+  const reportTypeInput = document.getElementById('report-type-input');
+  let assetRows = [];
+  let selectedIndex = null;
+
+  function showPanel(target) {
+    navButtons.forEach(b => b.classList.toggle('active', b.dataset.panel === target));
+    panels.forEach(panel => panel.classList.toggle('active-panel', panel.id === target));
+  }
+  navButtons.forEach((button) => button.addEventListener('click', () => showPanel(button.dataset.panel)));
+  document.querySelectorAll('[data-panel-target]').forEach((button) => button.addEventListener('click', () => showPanel(button.dataset.panelTarget)));
+
+  function escapeHTML(str) { return String(str ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch])); }
+  function chip(status) { const c = (status || 'Recorded').toLowerCase(); return `<span class="status-chip ${c}">${escapeHTML(status || 'Recorded')}</span>`; }
+
+  function parseAUDate(value) {
+    if (!value) return null;
+    const parts = String(value).trim().split(/[\/.-]/).map(Number);
+    if (parts.length < 3 || parts.some(Number.isNaN)) return null;
+    const [d, m, y] = parts[0] > 1900 ? [parts[2], parts[1], parts[0]] : parts;
+    const dt = new Date(y, m - 1, d);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+
+  function retestBucket(row) {
+    const rd = parseAUDate(row['Retest Date']);
+    if (!rd) return { bucket: 'No date', days: null };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.ceil((rd - today) / 86400000);
+    if (days < 0) return { bucket: 'Overdue', days };
+    if (days <= 30) return { bucket: 'Due in 30 days', days };
+    if (days <= 60) return { bucket: 'Due in 60 days', days };
+    if (days <= 90) return { bucket: 'Due in 90 days', days };
+    return { bucket: 'Later', days };
+  }
+
+  function updateStats(data, fileName) {
+    const stats = data.stats || {};
+    document.getElementById('stat-assets').textContent = (stats.assets ?? data.total_rows ?? 0).toLocaleString();
+    document.getElementById('stat-pass').textContent = (stats.passed ?? 0).toLocaleString();
+    document.getElementById('stat-fail').textContent = (stats.failed ?? 0).toLocaleString();
+    document.getElementById('stat-locations').textContent = (stats.locations ?? 0).toLocaleString();
+    document.getElementById('stat-due').textContent = ((stats.due_30 ?? 0) + (stats.due_60 ?? 0) + (stats.due_90 ?? 0)).toLocaleString();
+    document.getElementById('stat-overdue').textContent = (stats.overdue ?? 0).toLocaleString();
+    document.getElementById('report-overdue').textContent = (stats.overdue ?? 0).toLocaleString();
+    document.getElementById('report-due-30').textContent = (stats.due_30 ?? 0).toLocaleString();
+    document.getElementById('report-due-60').textContent = (stats.due_60 ?? 0).toLocaleString();
+    document.getElementById('report-due-90').textContent = (stats.due_90 ?? 0).toLocaleString();
+    document.getElementById('file-status-pill').textContent = fileName || data.filename || 'Project file imported';
+    document.getElementById('source-box').textContent = `${data.source_type || 'Project'} file parsed: ${(stats.assets ?? data.total_rows ?? 0).toLocaleString()} assets, ${(data.total_tests ?? 0).toLocaleString()} test lines`;
+    document.getElementById('primary-file-name').textContent = fileName || data.filename || 'Project file imported';
+    document.getElementById('preview-note').textContent = `Showing ${assetRows.length.toLocaleString()} asset rows. Test date range: ${stats.date_start || '-'} to ${stats.date_end || '-'}.`;
+  }
+
+  function populateLocationFilter(rows) {
+    const select = document.getElementById('location-filter');
+    const current = select.value;
+    const locations = [...new Set(rows.map(r => r['Location']).filter(Boolean))].sort();
+    select.innerHTML = '<option value="">All locations</option>' + locations.map(l => `<option>${escapeHTML(l)}</option>`).join('');
+    select.value = locations.includes(current) ? current : '';
+  }
+
+  function filteredRows() {
+    const q = document.getElementById('asset-search').value.trim().toLowerCase();
+    const status = document.getElementById('status-filter').value;
+    const location = document.getElementById('location-filter').value;
+    return assetRows.filter(r => {
+      const haystack = `${r['Appliance ID']} ${r['Type']} ${r['Location']} ${r['Test Summary']} ${r['User']}`.toLowerCase();
+      return (!q || haystack.includes(q)) && (!status || r['Status'] === status) && (!location || r['Location'] === location);
+    });
+  }
+
+  function renderRegister() {
+    const rows = filteredRows();
+    if (!assetRows.length) return;
+    let html = '<thead><tr><th>Asset ID</th><th>Type</th><th>Location</th><th>Test Date</th><th>Retest Date</th><th>Status</th><th>Tests</th><th>Summary</th></tr></thead><tbody>';
+    rows.forEach((r) => {
+      const originalIndex = assetRows.indexOf(r);
+      html += `<tr data-index="${originalIndex}" class="${selectedIndex === originalIndex ? 'selected-row' : ''}">
+        <td><strong>${escapeHTML(r['Appliance ID'])}</strong></td>
+        <td>${escapeHTML(r['Type'])}</td>
+        <td>${escapeHTML(r['Location'])}</td>
+        <td>${escapeHTML(r['Test Date'])}</td>
+        <td>${escapeHTML(r['Retest Date'])}</td>
+        <td>${chip(r['Status'])}</td>
+        <td>${escapeHTML(r['Tests'] || 0)}</td>
+        <td class="summary-cell">${escapeHTML(r['Test Summary'])}</td>
+      </tr>`;
+    });
+    html += '</tbody>';
+    assetTable.innerHTML = html;
+    assetTable.style.display = 'table';
+    emptyTable.style.display = 'none';
+    assetTable.querySelectorAll('tbody tr').forEach(row => row.addEventListener('click', () => selectAsset(Number(row.dataset.index))));
+    document.getElementById('preview-note').textContent = `Showing ${rows.length.toLocaleString()} of ${assetRows.length.toLocaleString()} assets after dashboard filters.`;
+  }
+
+  function renderRetestDashboard() {
+    const tbody = document.querySelector('#retest-table tbody');
+    if (!tbody) return;
+    if (!assetRows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Import a project file to populate the upcoming retest dashboard.</td></tr>';
+      return;
+    }
+    const bucketOrder = ['Overdue', 'Due in 30 days', 'Due in 60 days', 'Due in 90 days'];
+    const rows = [];
+    const counts = { 'Overdue': 0, 'Due in 30 days': 0, 'Due in 60 days': 0, 'Due in 90 days': 0 };
+    assetRows.forEach(r => {
+      const b = retestBucket(r);
+      if (bucketOrder.includes(b.bucket)) {
+        counts[b.bucket] += 1;
+        rows.push({ ...r, Bucket: b.bucket, Days: b.days });
+      }
+    });
+    document.getElementById('report-overdue').textContent = counts['Overdue'].toLocaleString();
+    document.getElementById('report-due-30').textContent = counts['Due in 30 days'].toLocaleString();
+    document.getElementById('report-due-60').textContent = counts['Due in 60 days'].toLocaleString();
+    document.getElementById('report-due-90').textContent = counts['Due in 90 days'].toLocaleString();
+    rows.sort((a, b) => bucketOrder.indexOf(a.Bucket) - bucketOrder.indexOf(b.Bucket) || (parseAUDate(a['Retest Date']) - parseAUDate(b['Retest Date'])) || String(a['Appliance ID']).localeCompare(String(b['Appliance ID'])));
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No assets are overdue or due within 90 days.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.slice(0, 250).map(r => `<tr>
+      <td><strong>${escapeHTML(r.Bucket)}</strong></td>
+      <td>${escapeHTML(r['Appliance ID'])}</td>
+      <td>${escapeHTML(r['Type'])}</td>
+      <td>${escapeHTML(r['Location'])}</td>
+      <td>${escapeHTML(r['Retest Date'])}</td>
+      <td>${escapeHTML(r.Days)}</td>
+      <td>${chip(r['Status'])}</td>
+    </tr>`).join('');
+  }
+
+  function selectAsset(index) {
+    selectedIndex = index;
+    const r = assetRows[index];
+    if (!r) return;
+    const tests = r['Detail Tests'] || [];
+    let testHtml = tests.length ? tests.map(t => `<div class="test-line"><div><strong>${escapeHTML(t.Measurement || 'Test')}</strong><small>${escapeHTML(t.Category || '')}</small></div><span>${escapeHTML(t.Reading || t.Status || '')}</span><em>${escapeHTML(t.Status || '')}</em></div>`).join('') : '<p class="muted">No detailed test rows available for this asset.</p>';
+    detailCard.innerHTML = `<div class="detail-head"><div><span class="detail-label">Selected asset</span><h3>${escapeHTML(r['Appliance ID'])}</h3></div>${chip(r['Status'])}</div>
+      <div class="detail-meta"><div><span>Type</span><strong>${escapeHTML(r['Type'])}</strong></div><div><span>Location</span><strong>${escapeHTML(r['Location'])}</strong></div><div><span>Test date</span><strong>${escapeHTML(r['Test Date'])}</strong></div><div><span>Retest</span><strong>${escapeHTML(r['Retest Date'])}</strong></div></div>
+      <div class="detail-summary"><h3>Test summary</h3><p>${escapeHTML(r['Test Summary'])}</p></div>
+      <div class="test-list"><h3>Detailed lines</h3>${testHtml}</div>`;
+    renderRegister();
+  }
+
+  function renderPreview(data, fileName) {
+    assetRows = data.rows || [];
+    selectedIndex = null;
+    updateStats(data, fileName);
+    populateLocationFilter(assetRows);
+    renderRegister();
+    renderRetestDashboard();
+    detailCard.innerHTML = '<div class="detail-empty"><span>▤</span><h3>No asset selected</h3><p>Select an asset row to view the detailed single-line test summary.</p></div>';
+    showPanel('home-panel');
+  }
+
+  document.querySelectorAll('input[type="file"]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      if (!input.files.length) return;
+      const file = input.files[0];
+      const fd = new FormData();
+      fd.append('project_file', file);
+      fd.append('filter_mode', document.getElementById('filter-mode-input')?.value || 'latest');
+      fd.append('filter_start_date', document.querySelector('input[name="filter_start_date"]')?.value || '');
+      fd.append('filter_end_date', document.querySelector('input[name="filter_end_date"]')?.value || '');
+      document.getElementById('source-box').textContent = 'Parsing Project file...';
+      try {
+        const res = await fetch('/preview', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not parse Project file');
+        renderPreview(data, file.name);
+      } catch (err) { document.getElementById('source-box').textContent = err.message; alert(err.message); }
+    });
+  });
+
+  ['asset-search','status-filter','location-filter'].forEach(id => document.getElementById(id).addEventListener('input', renderRegister));
+  document.getElementById('status-filter').addEventListener('change', renderRegister);
+  document.getElementById('location-filter').addEventListener('change', renderRegister);
+
+  function setReportType(value) {
+    reportTypeInput.value = value;
+    document.querySelectorAll('.report-action-card').forEach(card => card.classList.toggle('selected', card.dataset.reportAction === value));
+    document.querySelectorAll('input[name="report_type_control"]').forEach(input => {
+      input.checked = input.value === value;
+      input.closest('.compact-radio')?.classList.toggle('active', input.checked);
+    });
+  }
+  document.querySelectorAll('input[name="report_type_control"]').forEach(input => input.addEventListener('change', () => setReportType(input.value)));
+  document.querySelectorAll('[data-report-action]').forEach(button => button.addEventListener('click', () => { setReportType(button.dataset.reportAction); document.querySelector('.app-form').requestSubmit(); }));
+  document.querySelectorAll('[data-report-direct]').forEach(button => button.addEventListener('click', () => { setReportType(button.dataset.reportDirect); document.querySelector('.app-form').requestSubmit(); }));
+
+  const filterModeInput = document.getElementById('filter-mode-input');
+  const advancedAudit = document.getElementById('advanced-audit');
+  function setAuditMode(value) {
+    filterModeInput.value = value || 'latest';
+    document.querySelectorAll('input[name="audit_filter_mode"]').forEach(i => i.closest('.compact-radio')?.classList.toggle('active', i.checked));
+    const source = document.getElementById('source-box');
+    if (source && assetRows.length) {
+      source.textContent = value === 'all' ? 'Audit mode: all historical test dates selected' : value === 'range' ? 'Audit mode: selected date range' : 'Customer mode: latest test only';
+    }
+  }
+  document.querySelectorAll('input[name="audit_filter_mode"]').forEach((input) => input.addEventListener('change', () => setAuditMode(input.value)));
+  advancedAudit?.addEventListener('toggle', () => {
+    if (!advancedAudit.open) {
+      document.querySelectorAll('input[name="audit_filter_mode"]').forEach(i => { i.checked = false; i.closest('.compact-radio')?.classList.remove('active'); });
+      filterModeInput.value = 'latest';
+    } else if (!document.querySelector('input[name="audit_filter_mode"]:checked')) {
+      filterModeInput.value = 'latest';
+    }
+  });
+
+
+  // Settings tabs and local save/load
+  const settingsStorageKey = 'ttsProReportSettings.v1';
+  const settingInputs = () => Array.from(document.querySelectorAll('[data-setting-key]'));
+
+  document.querySelectorAll('.settings-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.settings-section').forEach(section => section.classList.remove('active-settings-section'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.settingsTab)?.classList.add('active-settings-section');
+    });
+  });
+
+  function collectSettings() {
+    const data = {};
+    settingInputs().forEach((input) => {
+      const key = input.dataset.settingKey;
+      if (!key) return;
+      if (input.type === 'checkbox') data[key] = input.checked;
+      else if (input.type === 'file') data[key] = input.files && input.files.length ? input.files[0].name : (data[key] || '');
+      else data[key] = input.value;
+    });
+    return data;
+  }
+
+  function applySettings(data) {
+    if (!data) return;
+    settingInputs().forEach((input) => {
+      const key = input.dataset.settingKey;
+      if (!key || !(key in data)) return;
+      if (input.type === 'checkbox') input.checked = Boolean(data[key]);
+      else if (input.type !== 'file') input.value = data[key];
+    });
+    // Apply some saved preferences to the live report controls.
+    if (data.defaultReportType) {
+      const map = {'PRO Report': 'pro', 'Basic Report': 'basic', 'Upcoming Retest Report': 'retest'};
+      if (map[data.defaultReportType] && typeof setReportType === 'function') setReportType(map[data.defaultReportType]);
+    }
+  }
+
+  function buildContractorBlockFromSettings() {
+    const data = collectSettings();
+    const parts = [];
+    if (data.businessName) parts.push(data.businessName);
+    if (data.tradingName) parts.push('Trading as: ' + data.tradingName);
+    if (data.abnAcn) parts.push('ABN/ACN: ' + data.abnAcn);
+    if (data.electricalLicence) parts.push('Electrical licence: ' + data.electricalLicence);
+    if (data.phone) parts.push('Phone: ' + data.phone);
+    if (data.email) parts.push('Email: ' + data.email);
+    if (data.website) parts.push('Website: ' + data.website);
+    if (data.address) parts.push(data.address);
+    return parts.join('\n');
+  }
+
+  function applySettingsToReportFields() {
+    const data = collectSettings();
+    const contractorField = document.querySelector('textarea[name="contractor"]');
+    if (contractorField && !contractorField.value.trim()) contractorField.value = buildContractorBlockFromSettings();
+    const customerNo = document.querySelector('input[name="customer_no"]');
+    if (customerNo && !customerNo.value.trim() && data.defaultCustomerNo) customerNo.value = data.defaultCustomerNo;
+    const inspection = document.querySelector('input[name="inspection_record_no"]');
+    if (inspection && !inspection.value.trim() && data.inspectionRecordPrefix) inspection.value = data.inspectionRecordPrefix;
+    const order = document.querySelector('input[name="order_no"]');
+    if (order && !order.value.trim() && data.orderNumberPrefix) order.value = data.orderNumberPrefix;
+    const description = document.querySelector('input[name="description"]');
+    if (description && !description.value.trim() && data.defaultDescription) description.value = data.defaultDescription;
+    const operatorName = document.querySelector('input[name="operator_name"]');
+    if (operatorName && !operatorName.value.trim() && data.defaultTechnician) operatorName.value = data.defaultTechnician;
+  }
+
+  document.getElementById('save-settings-btn')?.addEventListener('click', () => {
+    localStorage.setItem(settingsStorageKey, JSON.stringify(collectSettings()));
+    applySettingsToReportFields();
+    alert('Settings saved on this computer.');
+  });
+  document.getElementById('reset-settings-btn')?.addEventListener('click', () => {
+    if (!confirm('Reset visible settings fields to their default values?')) return;
+    document.querySelector('.settings-content')?.querySelectorAll('input, textarea, select').forEach((input) => {
+      if (input.type === 'checkbox') input.checked = input.defaultChecked;
+      else if (input.type !== 'file') input.value = input.defaultValue || '';
+    });
+  });
+  document.getElementById('clear-saved-settings-btn')?.addEventListener('click', () => {
+    localStorage.removeItem(settingsStorageKey);
+    alert('Saved settings cleared.');
+  });
+  document.getElementById('clear-app-data-btn')?.addEventListener('click', () => {
+    localStorage.removeItem(settingsStorageKey);
+    alert('Local app data cleared.');
+  });
+  document.getElementById('clear-report-history-btn')?.addEventListener('click', () => alert('Report history is not yet stored in this local build.'));
+  document.querySelector('.app-form')?.addEventListener('submit', applySettingsToReportFields);
+  try { applySettings(JSON.parse(localStorage.getItem(settingsStorageKey) || '{}')); } catch (e) {}
+
+</script>
+</body>
+</html>
